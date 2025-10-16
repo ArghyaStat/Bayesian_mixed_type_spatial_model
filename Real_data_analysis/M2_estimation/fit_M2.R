@@ -87,12 +87,12 @@ distobs.nn <- dist.nn(obs.locs.ord, neighbor_matrix = NNarray.obs)
 
 N.obs <- nrow(obs.locs)
 
-phi <- 2.635
+phi <- b_phi/2
 nu <- 0.3
 
   
   # Number of iterations
-  niters <- 2e4
+  niters <- 5e4
   N.obs <- nrow(obs.locs)
   
   
@@ -197,8 +197,6 @@ nu <- 0.3
   Y.obs.ord <- as.matrix(Y.obs[obs.ord, , drop = FALSE])
   log_like_post <- log.likelihood(W.obs.ord.mean, Y.obs.ord, family) 
   
-  dic <- -4 * log_like_mean + 2* log_like_post
-  
   beta.stats <- combine_stats(beta.stats.list)
   Sigma.stats <- combine_stats(Sigma.stats.list)
   phi.stats <- combine_stats(phi.stats.list)
@@ -215,7 +213,6 @@ nu <- 0.3
               "Sigma.ess" = Sigma.ess,
               "phi.ess" = phi.ess,
               "W.obs.ord.ess" = W.obs.ord.ess,
-              "dic" = dic, 
               "waic" = waic.obs,
               "acc.phi" = acc.phi,
               "total_time" = total_time)
