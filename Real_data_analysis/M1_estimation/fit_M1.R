@@ -179,7 +179,6 @@ q <- ncol(Y)
               "Sigma.ess" = Sigma.ess,
               "phi.ess" = phi.ess,
               "W.obs.ord.ess" = W.obs.ord.ess,
-              "dic" = dic, 
               "waic.obs" = waic.obs,
               "acc.phi" = acc.phi,
               "total_time" = total_time)
