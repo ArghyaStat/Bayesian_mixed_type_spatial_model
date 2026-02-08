@@ -80,11 +80,13 @@ sim.data <- function(q, N, family, true.beta, true.Sigma,
   Y.obs <- Y[-pred.indices,]
   
   true.W.obs <- true.W[-pred.indices,]
+  true.W.pred <- true.W[pred.indices,]
   
   data.details <- list(N = N, N.obs = N.obs, N.pred = N.pred, p = p, q = q, 
                        joint.locs = joint.locs, obs.locs = obs.locs, pred.locs = pred.locs,
                        X.obs = X.obs, X.pred = X.pred, diameter = diameter,
                        Y.obs = Y.obs, Y.pred.true = Y.pred.true, true.W.obs = true.W.obs,
+                       true.W.pred = true.W.pred,
                        true.beta = true.beta, true.Sigma = true.Sigma, 
                        true.phi = true.phi, true.nu = true.nu)
 

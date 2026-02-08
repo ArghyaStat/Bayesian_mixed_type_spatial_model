@@ -37,15 +37,15 @@ registerDoParallel(cl)
 results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) %dopar% {
   
   ### data generation
-                     
-  set.seed(r + 5)
-
+  
+  set.seed(r + 3091)
+  
   p <- 3
   q <- 2
   
   true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
   true.Sigma <- matrix(c(2, 1, 1, 1), nrow = q, ncol = q, byrow = TRUE)
-  true.phi <- 0.1
+  true.phi <- 0.3
   true.nu <- 0.5
   pred.prop <- 0.2
   
@@ -61,7 +61,7 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
   
   
   # Number of iterations
-  niters <- 5e4
+  niters <- 1e4
   pred.iters <- niters
   N.obs <- data$N.obs
   N.pred <- data$N.pred
@@ -83,18 +83,18 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
   W.obs.ord.ess <- matrix(NA, nrow = N.obs, ncol = q)
   phi.ess <- rep(NA, q)
   
-  m <- 20
+  
   obs.locs <- data$obs.locs
   Y.obs <- data$Y.obs
   X.obs <- data$X.obs
-  
+  m <- N.obs - 1
   
   obs.ord <- max_min(obs.locs) 
   # Assume max_min returns max-min order indices
   obs.locs.ord <- obs.locs[obs.ord, , drop = FALSE]  # Reorder locations based on max-min ordering
   distobs.ord <- rdist(obs.locs.ord)
   diameter <-  max(distobs.ord)
-  b_phi <- diameter/log(10)
+  b_phi <- diameter/3
   
   
   NNarray.obs <- neighbor_matrix(obs.locs.ord, m)
@@ -137,30 +137,37 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
   Y.pred.true <- data$Y.pred.true
   Y.pred.ord.true <- Y.pred.true[pred.ord, , drop = FALSE]
   
+  W.pred.ord.samples <- replicate(
+    pred.iters,
+    matrix(NA, nrow = N.pred, ncol = q),
+    simplify = FALSE
+  )
+  
+  Y.pred.sep <- replicate(pred.iters, matrix(NA, N.pred, q), simplify = F)
   
   for(j in 1:q){
     
     sub_family <- family[j]
     q_sub <- length(sub_family)
-  
-  
-  #### Prior specifications ####
-  
+    
+    
+    #### Prior specifications ####
+    
     M.prior <- matrix(0, p, q_sub)
     V.prior <-  1e2*diag(p) 
     S.prior <-  diag(q_sub)
     df.prior <- q_sub + 1
-
-  
+    
+    
     # Reorder Y.obs, X.obs, and W.obs accordingly
     Y.obs.ord <- as.matrix(Y.obs[obs.ord, , drop = FALSE][,j])
     W.obs.ord <- as.matrix(data$true.W.obs[obs.ord, , drop = FALSE][,j])
     beta <- data$true.beta[,j]
     Sigma <- as.matrix(data$true.Sigma[j,j])
     
-   
-    tuning.phi <- 5e-2
-  
+    
+    tuning.phi <- 8e-1
+    
     
     fit.main <- mcmc.main(Y.obs.ord, X.obs.ord, obs.locs.ord, m, N.obs, p, 
                           q = q_sub, distobs.nn, chol.K.obs.ord.inv, NNarray.obs, 
@@ -168,7 +175,7 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
                           M.prior, V.prior, S.prior, df.prior, b_phi,
                           niters, tuning.phi)
     
-   
+    
     
     W.ord.post <- fit.main$W.ord.samples
     beta.post <- fit.main$beta.samples
@@ -182,7 +189,7 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
     log.like[j] <- fit.main$log.like.mean
     W.obs.ord.mean[,j] <- Reduce("+", W.ord.post) / niters
     
-    rm(fit.main)
+    # rm(fit.main)
     
     #### Summary of estimation ###
     
@@ -197,36 +204,58 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
     Sigma.ess[j,j] <- compute_ess(Sigma.post)
     phi.ess[j] <- compute_ess(phi.post)
     W.obs.ord.ess[,j] <- compute_ess(W.ord.post)
-  
     
-    pred.samples <- predictive.samples(W.ord.post, beta.post, chol.Sigma.post, phi.post, nu, m, 
-                                         X.obs.ord, X.pred.ord, U.joint, U.pred.col, U.obs.col, 
-                                         chol.W.pred.var, N.obs, N.pred, pred.iters, p, family = sub_family)
     
-    Y.pred.sep <- Map(function(mat, col) {
-      mat[, j] <- col
-      mat
-    }, Y.pred.sep, pred.samples)
     
-   W.obs.ord.sep <- Map(function(mat, col) {
+    joint.dens <- matrix(NA, nrows = niters, ncol = q)
+    
+    for (i in 1:niters) {
+      
+      U.joint <- U.sgv(distlocs.nn, NNarray.all, phi.post[[i]], 
+                       nu, m)
+      
+      U.obs.col <- U.joint[ , 1:N.obs]
+      U.pred.col <- U.joint[ , (N.obs+1):(N.pred+N.obs)]
+      W.pred.prec <- crossprod.spam(U.pred.col)
+      W.pred.var <- solve.spam(as.spam(W.pred.prec))
+      chol.W.pred.var <- chol(W.pred.var)
+      
+      W.pred.mean.part <- U.obs.col %*% (W.ord.post[[i]] - X.obs.ord %*% beta)
+      W.pred.mean.tilde <- crossprod.spam(U.pred.col,  W.pred.mean.part)
+      
+      joint.dens[i,j] <- dmatnorm.sgv(W.pred.ord.true,
+                                      M = W.pred.mean.tilde,
+                                      chol.U.prec = chol.W.pred.var, 
+                                      chol.V.prec = chol.Sigma.post[[i]], 
+                                      NNarray = NNarray.pred, 
+                                      log = FALSE)
+      
+    }
+    
+    
+    W.obs.ord.sep <- Map(function(mat, col) {
       mat[, j] <- col
       mat
     }, W.obs.ord.sep, W.ord.post)
     
-  
+    
   }
   
- 
+  
+  eljpd <- log(mean(apply(joint.dens, 1, prod))) 
+  
+  
   log_like_mean <- mean(log.like)
-
+  
   Y.obs.ord <- as.matrix(Y.obs[obs.ord, , drop = FALSE])
   log_like_post <- log.likelihood(W.obs.ord.mean, Y.obs.ord, family) 
-
+  
+  
   beta.stats <- combine_stats(beta.stats.list)
   Sigma.stats <- combine_stats(Sigma.stats.list)
   phi.stats <- combine_stats(phi.stats.list)
   
-  #### Prediction quality asessment ####
+  #### Prediction quality assesment ####
   
   logs <- compute_logs(Y_true = Y.pred.ord.true, Y_pred_samples = Y.pred.sep, family = family)
   dss <- compute_dss(Y_true = Y.pred.ord.true, Y_pred_samples = Y.pred.sep, family = family)
@@ -238,8 +267,9 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
   
   mlpd.pred <- mlpd(W.obs.ord.sep, Y.pred.ord.true, family)
   
-  mlpd.obs <- mlpd(W.obs.ord.sep, Y.obs.ord, family)
-  waic.obs <- waic(W.obs.ord.sep, Y.obs.ord, mlpd.obs, family)
+  
+  # mlpd.obs <- mlpd(W.obs.ord.sep, Y.obs.ord, family)
+  # waic.obs <- waic(W.obs.ord.sep, Y.obs.ord, mlpd.obs, family)
   
   
   out <- list("beta.stats" = beta.stats,
@@ -268,4 +298,4 @@ results <- foreach(r = 1:reps, .packages = libraries, .export = functions_pred) 
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "gb_weak_sep_dep100.Rdata")
+list.save(results, file = "gb_strong_sep_dep100.Rdata")
