@@ -1,0 +1,307 @@
+---
+title: "ELPD estimation"
+author: "Arghya Mukherjee"
+format: pdf
+documentclass: article
+editor: visual
+geometry: margin=1in
+header-includes:
+   - \usepackage{amsmath, amssymb, amsfonts, setspace}
+   - \onehalfspacing
+   - \usepackage{etoolbox}
+   - \usepackage{hyperref}
+   - \usepackage{url}
+   - \usepackage{algorithm}
+   - \usepackage{algpseudocode}
+   - \renewcommand{\algorithmicrequire}{\textbf{Input:}}
+   - \renewcommand{\algorithmicensure}{\textbf{Output:}}
+   - \makeatletter
+   - \preto{\@verbatim}{\topsep=3pt \partopsep=3pt }
+   - \makeatother
+---
+
+# ELPD estimation
+
+The marginal ELPD of $Y^{*}$ given the observed data $Y$ is written as: \begin{equation}
+\begin{aligned}
+\mathrm{ELPD}
+&=
+\int \int
+\log \Biggl\{
+\int
+\pi(y^{*} \mid w^{*})
+\,
+\pi(w^{*} \mid w, \theta)
+\, dw^{*}
+\Biggr\}
+\,
+\pi(w, \theta \mid y)
+\, dw \, d\theta
+\\[6pt]
+&=
+\mathbb{E}_{w, \theta}
+\Bigl[
+\log
+\Bigl\{
+\mathbb{E}_{w^{*}}
+\bigl[
+\pi(y^{*} \mid w^{*})
+\bigr]
+\Bigr\}
+\Bigr].
+\end{aligned}
+\end{equation} where $\theta = (B, \Sigma, \phi)^\top$ denotes the collection of model parameters.
+
+In practice, the ELPD cannot be evaluated analytically and is approximated using a two-level Monte Carlo scheme. Let $\{(w^{(s)}, \theta^{(s)})\}_{s=1}^{S}$ denote samples from the posterior $\pi(w, \theta \mid y)$. For each outer draw $(w^{(s)}, \theta^{(s)})$, let $\{w^{*(s,r)}\}_{r=1}^{R}$ be samples from the conditional distribution $\pi(w^{*} \mid w^{(s)}, \theta^{(s)})$.
+
+The inner expectation is approximated by \begin{equation}
+\widehat{p}^{(s)}(y^{*})
+=
+\frac{1}{R}
+\sum_{r=1}^{R}
+\pi\bigl(y^{*} \mid w^{*(s,r)}\bigr),
+\end{equation} and the ELPD is estimated by the outer Monte Carlo average \begin{equation}
+\widehat{\mathrm{ELPD}}
+=
+\frac{1}{S}
+\sum_{s=1}^{S}
+\log \widehat{p}^{(s)}(y^{*})
+=
+\frac{1}{S}
+\sum_{s=1}^{S}
+\log
+\Biggl(
+\frac{1}{R}
+\sum_{r=1}^{R}
+\pi\bigl(y^{*} \mid w^{*(s,r)}\bigr)
+\Biggr).
+\end{equation}
+
+The conditional distribution of $W^{*}$ given $(W,B,\Sigma,\phi)$ is Gaussian. \begin{equation}
+W^{*} \mid W, B, \Sigma, \phi
+\;\sim\;
+\mathcal{MN}_{u,q}\!\left(
+X^{*} B
+-
+\big(Q_{\phi,(m)}^{(u,u)}\big)^{-1}
+Q_{\phi,(m)}^{(u,n)}
+\big(W - X B\big),
+\;
+\big(Q_{\phi,(m)}^{(u,u)}\big)^{-1},
+\;
+\Sigma
+\right),
+\end{equation} We estimate ELPD via Nested Monte Carlo Algorithm as given in the Appendix.
+
+## Model
+
+We have used GB response model with weak dependence $\phi = 0.1$ with location size $N = 100$. In the below analysis we report the Monte Carlo error due to the inner expression in Equation-1 which is estimated by $\frac{1}{R}
+\sum_{r=1}^{R}
+\pi\bigl(y^{*} \mid w^{*(s,r)}\bigr)$.
+
+### ELPD from joint model
+
+```{r, fig.width=6, fig.height=6, fig.align="center"}
+
+load(file = "elpd_array_joint.RData")
+
+elpd_joint <- mean(
+    apply(elpd_array, 1, function(x) {
+      m <- max(x)
+      m + log(mean(exp(x - m)))
+    })
+  )
+ 
+elpd_joint 
+
+R <- ncol(elpd_array)
+  
+  mean.inner <- numeric(nrow(elpd_array))
+  se.inner   <- numeric(nrow(elpd_array))
+  
+  for (i in 1:nrow(elpd_array)) {
+    
+    log_vals <- elpd_array[i, ]
+    m <- max(log_vals)
+    
+    ## stable likelihood values
+    Z <- exp(log_vals - m)
+    
+    ## true mean
+    mean_Z <- exp(m) * mean(Z)
+    
+    ## true sample sd
+    sd_Z <- exp(m) * sd(Z)
+    
+    mean.inner[i] <- mean_Z
+    se.inner[i]   <- sd_Z / sqrt(R)
+  }
+  
+  
+  rng <- range(log(se.inner), finite = TRUE)
+  
+  hist(log(se.inner),
+       breaks = 30,
+       xlim = rng,
+       main = "Monte Carlo log(SE) of Inner Expectation",
+       xlab = "log(SE)",
+       col = "lightblue",
+       border = "white",
+       probability = TRUE)
+  
+  log(mean(se.inner))
+  
+  summary(log(se.inner))
+
+```
+
+## ELPD Estimation for the Separate Model:
+
+Under the separate model, the predictive density factorizes across the $q$ components. For each posterior draw $s=1,\dots,S$ and predictive replicate $r=1,\dots,R$, define
+
+\begin{equation}
+L_{srj}
+=
+\log \pi_j\bigl(y_{j}^{*} \mid w_{j}^{*(s,r)}\bigr),
+\qquad j = 1,\dots,q.
+\end{equation}
+
+The joint predictive density is therefore $\pi\bigl(y^{*} \mid w^{*(s,r)}\bigr)
+=
+\prod_{j=1}^{q}
+\pi_j\bigl(y_{j}^{*} \mid w_{j}^{*(s,r)}\bigr)
+=
+\exp\!\left(
+\sum_{j=1}^{q} L_{srj}
+\right).$
+
+Let $L_{sr}
+=
+\sum_{j=1}^{q} L_{srj}.$ The inner Monte Carlo estimator becomes \begin{equation}
+\widehat{p}^{(s)}(y^{*})
+=
+\frac{1}{R}
+\sum_{r=1}^{R}
+\exp\!\left(L_{sr}\right)
+=
+\frac{1}{R}
+\sum_{r=1}^{R}
+\exp\!\left(
+\sum_{j=1}^{q} L_{srj}
+\right).
+\end{equation} The separate-model ELPD estimator is therefore \begin{equation}
+\widehat{\mathrm{ELPD}}_{\mathrm{sep}}
+=
+\frac{1}{S}
+\sum_{s=1}^{S}
+\log
+\left(
+\frac{1}{R}
+\sum_{r=1}^{R}
+\exp\!\left(
+\sum_{j=1}^{q} L_{srj}
+\right)
+\right).
+\end{equation}
+
+### Monte Carlo Error of the Inner Expectation
+
+For fixed $s$, define $Z_{sr}
+=
+\exp(L_{sr})
+=
+\pi\bigl(y^{*} \mid w^{*(s,r)}\bigr).$ Then the inner estimator is the sample mean \begin{equation}
+\widehat{p}^{(s)}(y^{*})
+=
+\frac{1}{R}
+\sum_{r=1}^{R}
+Z_{sr}.
+\end{equation} The Monte Carlo variance of this estimator is \begin{equation}
+\mathrm{Var}\!\left(
+\widehat{p}^{(s)}(y^{*})
+\right)
+=
+\frac{\mathrm{Var}(Z_{sr})}{R}.
+\end{equation}
+
+Using the unbiased sample variance \begin{equation}
+\widehat{\sigma}_s^{2}
+=
+\frac{1}{R-1}
+\sum_{r=1}^{R}
+\left(
+Z_{sr}
+-
+\widehat{p}^{(s)}(y^{*})
+\right)^{2},
+\end{equation} The Monte Carlo standard error of the inner expectation is \begin{equation}
+\widehat{\mathrm{SE}}_s
+=
+\frac{\widehat{\sigma}_s}{\sqrt{R}}.
+\end{equation}
+
+### Numerically Stable Formulation (suggested by ChatGPT)
+
+To avoid numerical underflow when evaluating $\exp(L_{sr})$, define $m_s = \max_{1 \le r \le R} L_{sr}.$ Then \begin{equation}
+Z_{sr}
+=
+\exp(m_s)
+\exp(L_{sr} - m_s).
+\end{equation} Let \begin{equation}
+\widetilde{Z}_{sr}
+=
+\exp(L_{sr} - m_s).
+\end{equation} The inner estimator and its standard error can be written as \begin{equation*}
+\widehat{p}^{(s)}(y^{*})
+=
+\exp(m_s)
+\left(
+\frac{1}{R}
+\sum_{r=1}^{R}
+\widetilde{Z}_{sr}
+\right),
+\end{equation*} \begin{equation}
+\widehat{\mathrm{SE}}_s
+=
+\exp(m_s)
+\frac{
+\mathrm{sd}(\widetilde{Z}_{s1},\dots,\widetilde{Z}_{sR})
+}{
+\sqrt{R}
+}.
+\end{equation}
+
+This formulation is equivalent to the original estimator but remains numerically stable even when the log-likelihood values are small in magnitude.
+
+### Comment on MCSE of inner expecation:
+
+\begin{itemize}
+
+   \item The estimated ELPD from both the models results same value, thus not very conclusive whether we will go for this measure or not.
+   
+   \item Note that, for both cases $\log{\frac{1}{S}\sum_{s=1}^{S}\textrm{SE}_{s}} = -0.50 > \textrm{ELPD} = -0.56$ which indicates that the variability is high to compute this inner expecation, thus needing more samples.
+   
+   \item The summary of log-SEs suggest that though SEs are originally close to zero, but they are at different scale. Thus, they are highly significant in terms of estimated ELPD which is itself very small quantity. The sensitivity needs to be taken care when the samplers are at low density region.
+
+\end{itemize}
+
+# Appendix
+
+\begin{algorithm}
+\caption{Nested Monte Carlo estimator of the ELPD}
+\label{alg:nested_elpd}
+\begin{algorithmic}[1]
+\State \textbf{Input:} Posterior samples $\{(W^{(s)}, B^{(s)}, \Sigma^{(s)}, \phi^{(s)})\}_{s=1}^{S}$,
+number of inner samples $R$.
+\State \textbf{Output:} Monte Carlo estimate $\widehat{\mathrm{ELPD}}$.
+\For{$s = 1, \ldots, S$}
+    \State Fix the $s$th posterior draw.
+    \For{$r = 1, \ldots, R$}
+        \State Draw $W^{*(s,r)} \sim \pi(W^{*} \mid W^{(s)}, B^{(s)}, \Sigma^{(s)}, \phi^{(s)})$.
+        \State Compute $p^{(s,r)} = \pi(y^{*} \mid W^{*(s,r)})$.
+    \EndFor
+    \State Compute $\ell^{(s)} = \log \bigl( R^{-1} \sum_{r=1}^{R} p^{(s,r)} \bigr)$.
+\EndFor
+\State Compute $\widehat{\mathrm{ELPD}} = S^{-1} \sum_{s=1}^{S} \ell^{(s)}$.
+\end{algorithmic}
+\end{algorithm}
