@@ -25,14 +25,20 @@ functions_list <- c("dmatnorm.sgv", "log.likelihood", "update.W",
                     "update.beta", "update.Sigma", "update.phi", "max_min",
                     "neighbor_matrix", "comb", "dist.nn", "U.sgv", 
                     "tuning.update","compute_ess", "summary_stats", "score_function",
-                    "RMSPE", "pred_coverage", "energy_score", "compute_logs", 
-                    "compute_dss", "compute_crps")
-functions_pred <- c('Y.pred.ord')
+                    "RMSPE", "pred_coverage", "Y.pred.ord", "predictive.output")
+# functions_pred <- c('Y.pred.ord', 'predictive.output')
 
+
+reps <- 3
+n.cores <- 3
+cl <- makeCluster(n.cores)
+registerDoParallel(cl)
+
+results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   ### data generation
                      
-  set.seed(3092)
+  set.seed(r + 5)
 
   p <- 3
   q <- 2
@@ -43,7 +49,7 @@ functions_pred <- c('Y.pred.ord')
   true.nu <- 0.5
   pred.prop <- 0.2
   
-  family <- c("Gaussian", "Binomial")
+  family <- c("Gaussian", "Poisson")
   
   data <- sim.data(q = 2, N = 1e2, 
                    family = family,
@@ -62,19 +68,23 @@ functions_pred <- c('Y.pred.ord')
   S.prior <-  diag(q)
   df.prior <- q + 1
   
-  N.obs <- data$N.obs
+  
+  ### Vecchia specifications and pre-computations ###
+  
   obs.locs <- data$obs.locs
+  N.obs <- data$N.obs
   Y.obs <- data$Y.obs
   X.obs <- data$X.obs
+  
   m <- N.obs - 1
   
-  obs.ord <- max_min(obs.locs)
+  
+  obs.ord <- max_min(obs.locs) 
   # Assume max_min returns max-min order indices
   obs.locs.ord <- obs.locs[obs.ord, , drop = FALSE]  # Reorder locations based on max-min ordering
   distobs.ord <- rdist(obs.locs.ord)
   diameter <-  max(distobs.ord)
   b_phi <- diameter/3
-  
   
   
   NNarray.obs <- neighbor_matrix(obs.locs.ord, m)
@@ -133,7 +143,7 @@ functions_pred <- c('Y.pred.ord')
                               phi, nu, m)
  
  
-  tuning.phi <- 5e-2
+  tuning.phi <- 3.5e-2
   
   # Number of iterations
   niters <- 5e4
@@ -144,6 +154,8 @@ functions_pred <- c('Y.pred.ord')
                         family, nu, W.obs.ord, beta, Sigma, phi,
                         M.prior, V.prior, S.prior, df.prior, b_phi,
                         niters, tuning.phi)
+  
+  pred.iters <- niters
   
   W.ord.post <- fit.main$W.ord.samples
   beta.post <- fit.main$beta.samples
@@ -156,117 +168,59 @@ functions_pred <- c('Y.pred.ord')
   
   rm(fit.main)
   
+ 
+  # summary_stats(W.ord.post, data$true.W.obs.ord)
+  beta.stats <- summary_stats(beta.post, data$true.beta)
+  Sigma.stats <- summary_stats(Sigma.post, data$true.Sigma)
+  phi.stats <- summary_stats(phi.post, data$true.phi)
+  
+  
+  
+  #### ESS calculation for component chains ####
+  
+  beta.ess <- compute_ess(beta.post)
+  Sigma.ess <- compute_ess(Sigma.post)
+  phi.ess <- compute_ess(phi.post)
+  W.obs.ord.ess <- compute_ess(W.ord.post)
+  
+  
+  predictive.results <- predictive.output(W.ord.post, beta.post, chol.Sigma.post,
+                                          phi.post, nu, m, 
+                                          X.obs.ord, X.pred.ord, distlocs.nn, NNarray.all,
+                                          N.obs, N.pred, pred.iters, q, p)
+  
+  pred.time <- predictive.results$pred.time
+  
+  Y.pred.joint <- predictive.results$Y.pred.ord
+  log.pred.joint <- predictive.results$log.pred.joint
+  
+  m <- max(log.pred.joint)
+  
+  elpd.joint <- m + log(mean(exp(log.pred.joint - m)))
+  
+  pred.summary <- summary_stats(Y.pred.joint, Y.pred.ord.true)
+  pred.coverage <- pred_coverage(Y.pred.ord.true, Y.pred.joint)
+ 
+  
+  out <- list("beta.stats" = beta.stats,
+              "Sigma.stats" = Sigma.stats, 
+              "phi.stats" = phi.stats,
+              "beta.ess" = beta.ess,
+              "Sigma.ess" = Sigma.ess,
+              "phi.ess" = phi.ess,
+              "W.obs.ord.ess" = W.obs.ord.ess,
+              "elpd.joint" = elpd.joint,
+              "pred.summary" = pred.summary,
+              "pred.coverage" = pred.coverage,
+              "acc.phi" = acc.phi,
+              "pred.time" = pred.time,
+              "total_time" = total_time)
+  
+ out
+  
+}
 
-  #  ELPD COMPUTATION — JOINT   #
- 
-  pred.iters <- niters   # S posterior draws
-  
-  ## This computes:
-  ## sum_{i=1}^u sum_{j=1}^q log pi_j( y_j(s_i*) | w_j*(s_i*) )
-  
-  joint_log_pred_density <- function(W.pred.draw, Y.pred.true, family) {
-    
-    N.pred <- nrow(Y.pred.true)
-    q      <- ncol(Y.pred.true)
-    
-    loglik <- 0
-    
-    for (j in 1:q) {
-      
-      if (family[j] == "Gaussian") {
-        
-        ## Gaussian with unit variance (adjust if variance differs)
-        loglik <- loglik +
-          sum(dnorm(Y.pred.true[, j],
-                    mean = W.pred.draw[, j],
-                    sd   = 1,
-                    log  = TRUE))
-        
-      } else if (family[j] == "Binomial") {
-        
-        ## logistic link assumed
-        prob <- 1 / (1 + exp(-W.pred.draw[, j]))
-        
-        loglik <- loglik +
-          sum(dbinom(Y.pred.true[, j],
-                     size = 1,
-                     prob = prob,
-                     log  = TRUE))
-      }
-    }
-    
-    return(loglik)
-  }
-  
-  
-  log_pred_joint <- numeric(pred.iters)
-  
-  start_time <- Sys.time()
-  
-  for (s in 1:pred.iters) {
-    
-    ## Recompute Vecchia factor for current phi
-    U.joint <- U.sgv(distlocs.nn, NNarray.all,
-                     phi.post[[s]],
-                     nu, m)
-    
-    U.obs.col  <- U.joint[, 1:N.obs]
-    U.pred.col <- U.joint[, (N.obs+1):(N.obs+N.pred)]
-    
-    ## Predictive covariance of W*
-    W.pred.prec <- crossprod.spam(U.pred.col)
-    W.pred.var  <- solve.spam(as.spam(W.pred.prec))
-    chol.W.pred.var <- chol(W.pred.var)
-    
-    
-  
-    ## Draw latent predictive W* | W, theta
-   
-    
-    W.pred.draw <- W.pred.ord(
-      W.obs.ord   = W.ord.post[[s]],
-      beta        = beta.post[[s]],
-      chol.Sigma  = chol.Sigma.post[[s]],
-      phi         = phi.post[[s]],
-      nu, m,
-      X.obs.ord, X.pred.ord,
-      U.joint, U.pred.col, U.obs.col,
-      chol.W.pred.var,
-      N.obs, N.pred, q, p
-    )
-    
-    
-  
-    log_pred_joint[s] <-
-      joint_log_pred_density(W.pred.draw,
-                             Y.pred.ord.true,
-                             family)
-    
-    
-    if (s %% (pred.iters / 10) == 0) {
-      elapsed_time <- as.numeric(
-        difftime(Sys.time(), start_time, units = "mins")
-      )
-      cat(sprintf("ELPD progress: %.0f%% | %.2f minutes\n",
-                  100 * s / pred.iters,
-                  elapsed_time))
-    }
-  }
-  
-  end_time <- Sys.time()
-  
-  cat("Total ELPD computation time (minutes):",
-      as.numeric(difftime(end_time, start_time, units = "mins")),
-      "\n")
-  
-  
- 
-  m <- max(log_pred_joint)
-  
-  elpd_joint <-
-    m + log(mean(exp(log_pred_joint - m)))
-  
-  cat("Joint ELPD =", elpd_joint, "\n")
-  
-  elpd_joint
-  
+stopCluster(cl)
+
+# Save results to an .RData file
+list.save(results, file = "gp_strong_corr_dep100.RData")
