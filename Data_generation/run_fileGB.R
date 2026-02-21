@@ -1,0 +1,65 @@
+### Gaussian Binomial phi 0.3 dependent
+
+rm(list = ls())
+
+libraries <- c("spam", "this.path", "fields", "fBasics", "MCMCpack", "truncnorm", 
+               "rlist", "foreach","doParallel", "FNN", "mcmcse")
+
+
+# Load libraries
+invisible(lapply(libraries, library, character.only = TRUE))
+
+mydir <- this.path::here()
+setwd(mydir)
+
+
+source("data_simulation.R")
+
+  
+  ### data generation from true model
+                     
+  set.seed(1710)
+
+  p <- 3
+  q <- 2
+  
+  true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
+  true.Sigma <- matrix(c(2,1,1,1), nrow = q, ncol = q, byrow = TRUE)
+  true.phi <- 0.3
+  true.nu <- 0.5
+  pred.prop <- 0.2
+  
+  family <- c("Gaussian", "Binomial")
+  
+  data.true <- sim.data(q = 2, N = 1e2, 
+                   family = family,
+                   true.beta = true.beta,
+                   true.Sigma = true.Sigma, 
+                   true.phi = true.phi,
+                   true.nu = true.nu,
+                   pred.prop = 0.2)
+  
+  rm(true.Sigma)
+  
+  ### In a separate file
+  
+  set.seed(1710)
+  
+  
+  ### Misspecified model
+  
+  true.Sigma <- matrix(c(2,0,0,1), nrow = q, ncol = q, byrow = TRUE)
+  
+  data.mis <- sim.data(q = 2, N = 1e2, 
+                   family = family,
+                   true.beta = true.beta,
+                   true.Sigma = true.Sigma, 
+                   true.phi = true.phi,
+                   true.nu = true.nu,
+                   pred.prop = 0.2)
+  
+  
+  Y.diff.obs <- data.true$Y.obs - data.mis$Y.obs
+  print(Y.diff.obs)
+  W.diff.obs <- data.true$true.W.obs - data.mis$true.W.obs
+  print(W.diff.obs)
