@@ -18,39 +18,41 @@ source("data_simulation.R")
   
   ### data generation from true model
                      
-  set.seed(1710)
+  # set.seed(1709)
 
   p <- 3
   q <- 2
   
-  true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
-  true.Sigma <- matrix(c(2,1,1,1), nrow = q, ncol = q, byrow = TRUE)
+  true.beta <- matrix(c(0,0,0,0,0,0), nrow = p, ncol = q)
+  true.Sigma <- matrix(c(1,1,1,2), nrow = q, ncol = q, byrow = TRUE)
   true.phi <- 0.3
   true.nu <- 0.5
   pred.prop <- 0.2
   
-  family <- c("Gaussian", "Binomial")
+  family <- c("Binomial", "Gaussian")
   
-  data.true <- sim.data(q = 2, N = 1e2, 
+  data.true <- sim.data(q = 2, N = 2.5e3, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
                    true.phi = true.phi,
                    true.nu = true.nu,
                    pred.prop = 0.2)
+  
+  cor(data.true$Y.obs)
   
   rm(true.Sigma)
   
   ### In a separate file
   
-  set.seed(1710)
+  # set.seed(1710)
   
   
   ### Misspecified model
   
-  true.Sigma <- matrix(c(2,0,0,1), nrow = q, ncol = q, byrow = TRUE)
+  true.Sigma <- matrix(c(1,0,0,2), nrow = q, ncol = q, byrow = TRUE)
   
-  data.mis <- sim.data(q = 2, N = 1e2, 
+  data.mis <- sim.data(q = 2, N = 2.5e3, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -58,8 +60,15 @@ source("data_simulation.R")
                    true.nu = true.nu,
                    pred.prop = 0.2)
   
+  cor(data.mis$Y.obs)
   
-  Y.diff.obs <- data.true$Y.obs - data.mis$Y.obs
-  print(Y.diff.obs)
-  W.diff.obs <- data.true$true.W.obs - data.mis$true.W.obs
-  print(W.diff.obs)
+  
+  # Y.diff.obs <- data.true$Y.obs - data.mis$Y.obs
+  # print(Y.diff.obs)
+  # W.diff.obs <- data.true$true.W.obs - data.mis$true.W.obs
+  # print(W.diff.obs)
+  
+  cov.true <- cov((data.true$true.W.obs))
+  print(cov.true)
+  cov.mis <- cov((data.mis$true.W.obs))
+  print(cov.mis)

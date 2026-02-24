@@ -56,11 +56,12 @@ sim.data <- function(q, N, family, true.beta, true.Sigma,
   # Generate responses based on family
   for (j in 1:q) {
     if (family[j] == "Gaussian") {
-      Y[, j] <- rnorm(N, mean = true.W[, j], sd = 1)
+      Y[, j] <- true.W[, j]
     } else if (family[j] == "Poisson") {
       Y[, j] <- rpois(N, lambda = exp(true.W[, j]))
     } else if (family[j] == "Binomial") {
-      Y[, j] <- rbinom(N, size = 1, prob = (exp(true.W[, j]) / (1 + exp(true.W[, j]))))
+      Y[, j] <- as.integer(true.W[, j] > 0)
+      # (exp(true.W[, j]) / (1 + exp(true.W[, j])))
     } else if (family[j] == "Gamma") {
       Y[, j] <- rgamma(N, shape = exp(true.W[, j]), rate = 1)
     } else if (family[j] == "Negative-Binomial") {
