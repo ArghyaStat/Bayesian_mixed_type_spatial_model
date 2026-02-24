@@ -18,12 +18,12 @@ source("data_simulation.R")
   
   ### data generation from true model
                      
-  # set.seed(1709)
+  set.seed(1709)
 
   p <- 3
   q <- 2
   
-  true.beta <- matrix(c(0,0,0,0,0,0), nrow = p, ncol = q)
+  true.beta <- matrix(0, nrow = p, ncol = q)
   true.Sigma <- matrix(c(1,1,1,2), nrow = q, ncol = q, byrow = TRUE)
   true.phi <- 0.3
   true.nu <- 0.5
@@ -31,7 +31,7 @@ source("data_simulation.R")
   
   family <- c("Binomial", "Gaussian")
   
-  data.true <- sim.data(q = 2, N = 2.5e3, 
+  data.true <- sim.data(q = 2, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -45,14 +45,14 @@ source("data_simulation.R")
   
   ### In a separate file
   
-  # set.seed(1710)
+  set.seed(1710)
   
   
   ### Misspecified model
   
   true.Sigma <- matrix(c(1,0,0,2), nrow = q, ncol = q, byrow = TRUE)
   
-  data.mis <- sim.data(q = 2, N = 2.5e3, 
+  data.mis <- sim.data(q = 2, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
