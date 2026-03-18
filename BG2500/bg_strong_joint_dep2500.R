@@ -128,10 +128,10 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   # tuning.phi <- 4e-2
   
-  tuning.phi <- 5e-4
+  tuning.phi <- 1e-3
   
   # Number of iterations
-  niters <- 4e4
+  niters <- 1e4
   
  
   
