@@ -61,7 +61,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   family <- c("Binomial", "Gaussian", "Poisson")
   
-  data <- sim.data(q = q, N = 2.5e3, 
+  data <- sim.data(q = q, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -137,7 +137,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   W.obs.ord <- data$true.W.obs[obs.ord, , drop = FALSE]
   
   
-  tuning.phi <- 1e-3
+  tuning.phi <- 5e-3
   
   # Number of iterations
   niters <- 4e4
@@ -158,4 +158,4 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "bgp_weak_sep_ind2500.RData")
+list.save(results, file = "bgp_weak_sep_ind100.RData")
