@@ -45,14 +45,14 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   q <- 2
   
   true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
-  true.Sigma <- matrix(c(3,0,0,2), nrow = q, ncol = q, byrow = TRUE)
+  true.Sigma <- matrix(c(9,0,0,2), nrow = q, ncol = q, byrow = TRUE)
   true.phi <- 0.1
   true.nu <- 0.5
   pred.prop <- 0.2
   
-  family <- c("Gaussian", "Poisson")
+  family <- c("Binomial", "Poisson")
   
-  data <- sim.data(q = 2, N = 2.5e3, 
+  data <- sim.data(q = 2, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -149,4 +149,4 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "gp_weak_joint_ind2500.RData")
+list.save(results, file = "bp_weak_joint_ind100.RData")

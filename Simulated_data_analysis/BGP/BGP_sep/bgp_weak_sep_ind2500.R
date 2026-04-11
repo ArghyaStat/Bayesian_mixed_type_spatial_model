@@ -137,7 +137,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   W.obs.ord <- data$true.W.obs[obs.ord, , drop = FALSE]
   
   
-  tuning.phi <- 5e-4
+  tuning.phi <- 1e-3
   
   # Number of iterations
   niters <- 4e4

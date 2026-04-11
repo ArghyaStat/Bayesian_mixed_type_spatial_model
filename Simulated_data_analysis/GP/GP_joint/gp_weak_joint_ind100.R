@@ -52,7 +52,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   family <- c("Gaussian", "Poisson")
   
-  data <- sim.data(q = 2, N = 2.5e3, 
+  data <- sim.data(q = 2, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -149,4 +149,4 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "gp_weak_joint_ind2500.RData")
+list.save(results, file = "gp_weak_joint_ind100.RData")

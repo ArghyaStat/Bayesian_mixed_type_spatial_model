@@ -1,4 +1,4 @@
-### Binomial Gaussian Poisson phi 0.3 joint dep
+### Binomial Gaussian Poisson phi 0.1 sep dep
 
 rm(list = ls())
 
@@ -15,10 +15,11 @@ setwd(mydir)
 
 source("data_simulation.R")
 source("vecchia.R")
-source("aux_functions_joint.R")
-source("update_parameters_joint.R")
-source("mixed_workflow_joint.R")
+source("aux_functions_sep.R")
+source("update_parameters_sep.R")
+source("mixed_workflow_sep.R")
 source("predictive_scores.R")
+
 
 
 prime_seeds <- c(
@@ -45,14 +46,14 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   q <- 2
   
   true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
-  true.Sigma <- matrix(c(3,0,0,2), nrow = q, ncol = q, byrow = TRUE)
-  true.phi <- 0.1
+  true.Sigma <- matrix(c(9,0,0,2), nrow = q, ncol = q, byrow = TRUE)
+  true.phi <- 0.3
   true.nu <- 0.5
   pred.prop <- 0.2
   
-  family <- c("Gaussian", "Poisson")
+  family <- c("Binomial", "Poisson")
   
-  data <- sim.data(q = 2, N = 2.5e3, 
+  data <- sim.data(q = q, N = 1e2, 
                    family = family,
                    true.beta = true.beta,
                    true.Sigma = true.Sigma, 
@@ -63,12 +64,13 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   
   
+  
   #### Prior specifications ####
   
   M.prior <- matrix(0, p, q)
   V.prior <-  1e2*diag(p) 
-  S.prior <-  diag(q)
-  df.prior <- q + 1
+  a.prior <- 1e-2
+  b.prior <- 1e-2
   
   
   ### Vecchia specifications and pre-computations ###
@@ -123,24 +125,23 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   # Sample initial parameters from MLE
   
   beta <- data$true.beta
-  Sigma <- data$true.Sigma
+  Sigma <- diag(diag(data$true.Sigma))
   W.obs.ord <- data$true.W.obs[obs.ord, , drop = FALSE]
   
   
-  tuning.phi <- 1e-3
+  tuning.phi <- 5e-3
   
   # Number of iterations
   niters <- 4e4
   
- 
   
-  out <- mixed.workflow.joint(Y.obs.ord, X.obs.ord, obs.locs.ord, m, N.obs, p, q,
-                              nu, W.obs.ord, beta, Sigma, phi,
-                              M.prior, V.prior, S.prior, df.prior, b_phi,
-                              niters, tuning.phi,
-                              Y.pred.ord.true, X.pred.ord, N.pred,
-                              distall.nn, coeff.all, NNarray.all,
-                              family, family.par = NULL, link = NULL)
+  out <- mixed.workflow.sep(Y.obs.ord, X.obs.ord, obs.locs.ord, m, N.obs, p, q,
+                            nu, W.obs.ord, beta, Sigma, phi,
+                            M.prior, V.prior, a.prior, b.prior, b_phi,
+                            niters, tuning.phi,
+                            Y.pred.ord.true, X.pred.ord, N.pred,
+                            distall.nn, coeff.all, NNarray.all,
+                            family, family.par = NULL, link = NULL)
   
   out
   
@@ -149,4 +150,4 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "gp_weak_joint_ind2500.RData")
+list.save(results, file = "bp_strong_sep_ind100.RData")

@@ -46,7 +46,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   
   true.beta <- matrix(c(1.0, -0.5,  3,  1.5, -1.2,  0.0), nrow = p, ncol = q, byrow = TRUE)
   true.Sigma <- matrix(c(3,0,0,2), nrow = q, ncol = q, byrow = TRUE)
-  true.phi <- 0.1
+  true.phi <- 0.3
   true.nu <- 0.5
   pred.prop <- 0.2
   
@@ -127,7 +127,7 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
   W.obs.ord <- data$true.W.obs[obs.ord, , drop = FALSE]
   
   
-  tuning.phi <- 1e-3
+  tuning.phi <- 5e-3
   
   # Number of iterations
   niters <- 4e4
@@ -149,4 +149,4 @@ results <- foreach(r = 1:reps, .packages = libraries) %dopar% {
 stopCluster(cl)
 
 # Save results to an .RData file
-list.save(results, file = "gp_weak_joint_ind2500.RData")
+list.save(results, file = "gp_strong_joint_ind100.RData")
