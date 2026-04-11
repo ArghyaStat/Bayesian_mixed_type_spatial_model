@@ -2,7 +2,7 @@
 
 This repository accompanies the article:
 
-> **“Scalable Bayesian inference for high-dimensional mixed-type multivariate spatial data”**
+**“Scalable Bayesian inference for high-dimensional mixed-type multivariate spatial data”**
 
 It contains all code and outputs required to reproduce the **simulation studies**, **real data analysis**, and **computational quality assessments** presented in the paper.
 
