@@ -48,8 +48,8 @@ For each response type, the simulations include:
   - $\phi = 0.3$ (strong dependence)
 
 - Cross-response covariance structures:  
-  - **Dependent $\bm{\Sigma}$**  
-  - **Independent $\bm{\Sigma}$**
+  - **Dependent ${\Sigma}$**  
+  - **Independent ${\Sigma}$**
 
 - Number of replications:  
   - **50 independent datasets**
