@@ -197,5 +197,5 @@ results <- foreach(k = 1:k.folds,
 stopCluster(cl)
 
 
-# # Save results
+# Save results
 save(results, file = "results_M1.RData")

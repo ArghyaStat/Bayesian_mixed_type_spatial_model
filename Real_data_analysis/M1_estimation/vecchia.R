@@ -150,47 +150,7 @@ vecchia_coeff <- function(dist.nn, NNarray, phi, nu){
   list(B = B_list, r = r_vec)
 }
 
-# vecchia_coeff <- function(dist.nn, NNarray, phi, nu){
-#   
-#   n <- length(dist.nn)
-#   
-#   B_list <- vector("list", n)
-#   r_vec  <- numeric(n)
-#   
-#   for(i in seq_len(n)){
-#     
-#     neigh <- NNarray[i, ]
-#     neigh <- neigh[!is.na(neigh)]
-#     
-#     idx <- neigh[neigh < i]
-#     
-#     if(length(idx) == 0){
-#       r_vec[i] <- 1
-#       B_list[[i]] <- numeric(0)
-#       next
-#     }
-#     
-#     pos_i <- which(neigh == i)
-#     pos_idx <- match(idx, neigh)
-#     
-#     d_sub <- dist.nn[[i]][pos_idx, pos_idx, drop = FALSE]
-#     d_i   <- dist.nn[[i]][pos_i, pos_idx, drop = FALSE]
-#     
-#     K22 <- Matern(d_sub, range = phi, smoothness = nu)
-#     K12 <- Matern(d_i,   range = phi, smoothness = nu)
-#     
-#     # robust solve
-#     x <- solve(K22, t(K12))
-#     
-#     B_i <- as.numeric(t(x))
-#     
-#     r_vec[i] <- 1 - sum(B_i * K12)
-#     
-#     B_list[[i]] <- B_i
-#   }
-#   
-#   list(B = B_list, r = r_vec)
-# }
+
 
 ### Fast vecchia likelihood
 
@@ -295,38 +255,6 @@ vecchia_products <- function(W, X, B, r, NNarray){
   )
 }
 
-# vecchia_prior_draw <- function(Z, NNarray, B_list, r_vec, Sigma){
-#   
-#   N <- nrow(Z)
-#   q <- ncol(Z)
-#   
-#   chol.Sigma <- chol(Sigma)
-#   
-#   Z <- Z %*% chol.Sigma         # CORRECT (matches MN form)
-#   
-#   nu <- matrix(0, N, q)
-#   
-#   for(i in seq_len(N)){
-#     
-#     neigh <- NNarray[i,]
-#     neigh <- neigh[!is.na(neigh)]
-#     neigh <- neigh[neigh < i]
-#     
-#     if(length(neigh) == 0){
-#       
-#       nu[i,] <- sqrt(r_vec[i]) * Z[i,]
-#       
-#     } else {
-#       
-#       B <- B_list[[i]]
-#       
-#       nu[i,] <- as.numeric(B %*% nu[neigh,,drop=FALSE]) +
-#         sqrt(r_vec[i]) * Z[i,]
-#     }
-#   }
-#   
-#   return(nu)
-# }
 
 
 
@@ -416,59 +344,3 @@ vecchia_pred_draw <- function(W.obs.ord,
   
   W[pred_id,,drop=FALSE]
 }
-
-
-# vecchia_pred_draw <- function(W.obs.ord,
-#                                     X.obs.ord,
-#                                     X.pred.ord,
-#                                     beta,
-#                                     Sigma,
-#                                     NNarray,
-#                                     coeff,
-#                                     obs_id,
-#                                     pred_id){
-#   
-#   B_list <- coeff$B
-#   r_vec  <- coeff$r
-#   
-#   q <- ncol(W.obs.ord)
-#   n_tot <- nrow(NNarray)
-#   
-#   mu <- matrix(0,n_tot,q)
-#   mu[obs_id,]  <- X.obs.ord %*% beta
-#   mu[pred_id,] <- X.pred.ord %*% beta
-#   
-#   W <- matrix(0,n_tot,q)
-#   W[obs_id,] <- W.obs.ord
-#   
-#   R_Sigma <- chol(Sigma)   # upper Cholesky
-#   
-#   for(i in pred_id){
-#     
-#     neigh <- NNarray[i,]
-#     neigh <- neigh[!is.na(neigh)]
-#     
-#     B_i <- B_list[[i]]
-#     
-#     if(length(B_i)==0){
-#       
-#       mean_i <- mu[i,]
-#       
-#     } else {
-#       
-#       idx <- neigh[-which(neigh==i)]
-#       
-#       diff <- W[idx,,drop=FALSE] - mu[idx,,drop=FALSE]
-#       
-#       mean_i <- mu[i,] + as.numeric(B_i %*% diff)
-#     }
-#     
-#     z <- rnorm(q)
-#     
-#     # W[i,] <- mean_i + sqrt(r_vec[i]) * (t(R_Sigma) %*% z)
-#     
-#     W[i,] <- mean_i + sqrt(r_vec[i]) * (z %*% R_Sigma)
-#   }
-#   
-#   W[pred_id,,drop=FALSE]
-# }
